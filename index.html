@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>พิพิธภัณฑ์ศิลปะ 3D · Art Museum</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Sarabun:wght@300;400;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --gold: #c9a84c;
+    --gold-light: #e8c97a;
+    --cream: #f5f0e8;
+    --dark: #1a1410;
+    --panel-bg: rgba(15, 10, 5, 0.92);
+  }
+
+  body {
+    background: #0a0806;
+    font-family: 'Sarabun', sans-serif;
+    overflow: hidden;
+    color: var(--cream);
+  }
+
+  #canvas-container {
+    position: fixed; inset: 0;
+  }
+
+  canvas { display: block; }
+
+  /* HUD */
+  #hud {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  /* Top title bar */
+  #title-bar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    padding: 16px 32px;
+    background: linear-gradient(to bottom, rgba(10,8,6,0.9) 0%, transparent 100%);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: none;
+  }
+
+  #title-bar h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4rem;
+    color: var(--gold);
+    letter-spacing: 0.08em;
+  }
+
+  #title-bar p {
+    font-size: 0.75rem;
+    color: rgba(201,168,76,0.6);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  /* Controls hint */
+  #controls-hint {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 20px;
+    pointer-events: none;
+    opacity: 0.7;
+  }
+
+  .hint-key {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7rem;
+    color: var(--gold-light);
+    letter-spacing: 0.1em;
+  }
+
+  .key {
+    background: rgba(201,168,76,0.15);
+    border: 1px solid rgba(201,168,76,0.4);
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    font-family: monospace;
+    color: var(--gold);
+    min-width: 36px;
+    text-align: center;
+  }
+
+  /* Mini map */
+  #minimap {
+    position: fixed;
+    bottom: 90px;
+    right: 24px;
+    width: 120px;
+    height: 120px;
+    border: 1px solid rgba(201,168,76,0.3);
+    background: rgba(10,8,6,0.8);
+    border-radius: 4px;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  #minimap canvas { width: 100%; height: 100%; }
+
+  /* Upload Panel */
+  #upload-panel {
+    position: fixed;
+    right: -380px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 340px;
+    max-height: 80vh;
+    background: var(--panel-bg);
+    border: 1px solid rgba(201,168,76,0.3);
+    border-right: none;
+    border-radius: 8px 0 0 8px;
+    padding: 24px;
+    transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 20;
+    overflow-y: auto;
+    pointer-events: all;
+  }
+
+  #upload-panel.open { right: 0; }
+
+  #panel-toggle {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--gold);
+    color: var(--dark);
+    border: none;
+    padding: 12px 8px;
+    cursor: pointer;
+    z-index: 21;
+    border-radius: 6px 0 0 6px;
+    font-size: 0.65rem;
+    font-family: 'Sarabun', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transition: background 0.2s;
+    pointer-events: all;
+  }
+
+  #panel-toggle:hover { background: var(--gold-light); }
+
+  .panel-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.1rem;
+    color: var(--gold);
+    margin-bottom: 4px;
+  }
+
+  .panel-subtitle {
+    font-size: 0.72rem;
+    color: rgba(201,168,76,0.5);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(201,168,76,0.15);
+  }
+
+  /* Drop zone */
+  #drop-zone {
+    border: 2px dashed rgba(201,168,76,0.35);
+    border-radius: 6px;
+    padding: 28px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 16px;
+    background: rgba(201,168,76,0.03);
+  }
+
+  #drop-zone:hover, #drop-zone.drag-over {
+    border-color: var(--gold);
+    background: rgba(201,168,76,0.08);
+  }
+
+  #drop-zone .icon {
+    font-size: 2.2rem;
+    margin-bottom: 10px;
+    opacity: 0.7;
+  }
+
+  #drop-zone p {
+    font-size: 0.8rem;
+    color: rgba(245,240,232,0.6);
+    line-height: 1.6;
+  }
+
+  #drop-zone strong { color: var(--gold); }
+
+  #file-input { display: none; }
+
+  /* Frame selector */
+  .section-label {
+    font-size: 0.7rem;
+    color: rgba(201,168,76,0.6);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .frame-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .frame-option {
+    aspect-ratio: 1;
+    border: 1px solid rgba(201,168,76,0.2);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 0.62rem;
+    color: rgba(201,168,76,0.5);
+    transition: all 0.2s;
+    background: rgba(201,168,76,0.02);
+    padding: 6px;
+  }
+
+  .frame-option:hover, .frame-option.selected {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: rgba(201,168,76,0.1);
+  }
+
+  .frame-icon { font-size: 1.4rem; }
+
+  /* Wall selector */
+  .wall-selector {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 20px;
+  }
+
+  .wall-btn {
+    padding: 8px 4px;
+    border: 1px solid rgba(201,168,76,0.2);
+    border-radius: 4px;
+    background: transparent;
+    color: rgba(201,168,76,0.5);
+    font-size: 0.65rem;
+    font-family: 'Sarabun', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+
+  .wall-btn:hover, .wall-btn.selected {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: rgba(201,168,76,0.1);
+  }
+
+  /* Slot selector */
+  .slot-selector {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .slot-btn {
+    padding: 6px 12px;
+    border: 1px solid rgba(201,168,76,0.2);
+    border-radius: 4px;
+    background: transparent;
+    color: rgba(201,168,76,0.5);
+    font-size: 0.65rem;
+    font-family: 'Sarabun', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .slot-btn:hover, .slot-btn.selected {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: rgba(201,168,76,0.1);
+  }
+
+  /* Action button */
+  .btn-primary {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    color: var(--dark);
+    border: none;
+    border-radius: 4px;
+    font-family: 'Sarabun', sans-serif;
+    font-weight: 600;
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    margin-bottom: 10px;
+  }
+
+  .btn-primary:hover { opacity: 0.85; }
+
+  .btn-secondary {
+    width: 100%;
+    padding: 10px;
+    background: transparent;
+    color: rgba(201,168,76,0.6);
+    border: 1px solid rgba(201,168,76,0.2);
+    border-radius: 4px;
+    font-family: 'Sarabun', sans-serif;
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-secondary:hover {
+    border-color: rgba(201,168,76,0.5);
+    color: var(--gold);
+  }
+
+  /* Preview */
+  #preview-container {
+    width: 100%;
+    aspect-ratio: 4/3;
+    border: 1px solid rgba(201,168,76,0.2);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    display: none;
+    background: rgba(0,0,0,0.3);
+  }
+
+  #preview-img {
+    width: 100%; height: 100%;
+    object-fit: contain;
+  }
+
+  /* Crosshair */
+  #crosshair {
+    position: fixed;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 15;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  body.pointer-locked #crosshair { opacity: 1; }
+
+  #crosshair::before, #crosshair::after {
+    content: '';
+    position: absolute;
+    background: rgba(201,168,76,0.8);
+  }
+  #crosshair::before { width: 16px; height: 1px; top: 0; left: -8px; }
+  #crosshair::after  { width: 1px; height: 16px; top: -8px; left: 0; }
+
+  /* Click to start */
+  #start-screen {
+    position: fixed; inset: 0;
+    background: rgba(10,8,6,0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    transition: opacity 0.6s;
+    cursor: pointer;
+  }
+
+  #start-screen.hidden { opacity: 0; pointer-events: none; }
+
+  #start-screen h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.8rem;
+    color: var(--gold);
+    margin-bottom: 8px;
+    text-align: center;
+  }
+
+  #start-screen p {
+    color: rgba(245,240,232,0.5);
+    font-size: 0.9rem;
+    margin-bottom: 40px;
+    text-align: center;
+  }
+
+  .start-btn {
+    padding: 14px 48px;
+    background: transparent;
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem;
+    letter-spacing: 0.2em;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.3s;
+  }
+
+  .start-btn:hover {
+    background: var(--gold);
+    color: var(--dark);
+  }
+
+  .gold-line {
+    width: 60px; height: 1px;
+    background: var(--gold);
+    margin: 16px auto;
+    opacity: 0.4;
+  }
+
+  /* Notification */
+  #notification {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: rgba(201,168,76,0.15);
+    border: 1px solid rgba(201,168,76,0.4);
+    color: var(--gold);
+    padding: 10px 24px;
+    border-radius: 2px;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 50;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  #notification.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  scrollbar-width: thin;
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.3); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div id="canvas-container">
+  <canvas id="three-canvas"></canvas>
+</div>
+
+<div id="hud">
+  <div id="title-bar">
+    <div>
+      <h1>พิพิธภัณฑ์ศิลปะ · Art Museum</h1>
+      <p>CLASSICAL GALLERY · INTERACTIVE 3D ENVIRONMENT</p>
+    </div>
+  </div>
+
+  <div id="crosshair"></div>
+
+  <div id="controls-hint">
+    <div class="hint-key"><div class="key">W A S D</div><span>เดิน</span></div>
+    <div class="hint-key"><div class="key">Mouse</div><span>มอง</span></div>
+    <div class="hint-key"><div class="key">ESC</div><span>ออก</span></div>
+    <div class="hint-key"><div class="key">▶</div><span>อัปโหลด</span></div>
+  </div>
+
+  <div id="minimap">
+    <canvas id="minimap-canvas" width="120" height="120"></canvas>
+  </div>
+</div>
+
+<!-- Upload Panel -->
+<button id="panel-toggle" onclick="togglePanel()">อัปโหลด ภาพ</button>
+
+<div id="upload-panel">
+  <div class="panel-title">อัปโหลดผลงาน</div>
+  <div class="panel-subtitle">UPLOAD ARTWORK</div>
+
+  <div id="drop-zone">
+    <div class="icon">🖼️</div>
+    <p>ลากไฟล์มาวางที่นี่<br><strong>หรือคลิกเพื่อเลือกไฟล์</strong><br><span style="font-size:0.7rem;opacity:0.6">JPG, PNG, WEBP · สูงสุด 8MB</span></p>
+  </div>
+  <input type="file" id="file-input" accept="image/*">
+
+  <div id="preview-container">
+    <img id="preview-img" alt="preview">
+  </div>
+
+  <div class="section-label">เลือกกรอบภาพ · FRAME STYLE</div>
+  <div class="frame-grid">
+    <div class="frame-option selected" data-frame="gold" onclick="selectFrame(this)">
+      <span class="frame-icon">🟨</span>Gold
+    </div>
+    <div class="frame-option" data-frame="dark" onclick="selectFrame(this)">
+      <span class="frame-icon">⬛</span>Dark
+    </div>
+    <div class="frame-option" data-frame="silver" onclick="selectFrame(this)">
+      <span class="frame-icon">⬜</span>Silver
+    </div>
+    <div class="frame-option" data-frame="ornate" onclick="selectFrame(this)">
+      <span class="frame-icon">🏛️</span>Ornate
+    </div>
+    <div class="frame-option" data-frame="minimal" onclick="selectFrame(this)">
+      <span class="frame-icon">▭</span>Minimal
+    </div>
+    <div class="frame-option" data-frame="none" onclick="selectFrame(this)">
+      <span class="frame-icon">✕</span>None
+    </div>
+  </div>
+
+  <div class="section-label">เลือกผนัง · WALL</div>
+  <div class="wall-selector">
+    <button class="wall-btn selected" data-wall="0" onclick="selectWall(this)">เหนือ</button>
+    <button class="wall-btn" data-wall="1" onclick="selectWall(this)">ใต้</button>
+    <button class="wall-btn" data-wall="2" onclick="selectWall(this)">ตะวันออก</button>
+    <button class="wall-btn" data-wall="3" onclick="selectWall(this)">ตะวันตก</button>
+  </div>
+
+  <div class="section-label">ช่องที่ · SLOT</div>
+  <div class="slot-selector">
+    <button class="slot-btn selected" data-slot="0" onclick="selectSlot(this)">1</button>
+    <button class="slot-btn" data-slot="1" onclick="selectSlot(this)">2</button>
+    <button class="slot-btn" data-slot="2" onclick="selectSlot(this)">3</button>
+  </div>
+
+  <button class="btn-primary" onclick="applyArtwork()">✦ แขวนภาพ · HANG ARTWORK</button>
+  <button class="btn-secondary" onclick="clearSlot()">ลบภาพในช่องนี้</button>
+</div>
+
+<!-- Start screen -->
+<div id="start-screen">
+  <h2>พิพิธภัณฑ์ศิลปะ</h2>
+  <div class="gold-line"></div>
+  <p>สำรวจห้องแกลเลอรี 3D แบบอินเทอร์แอคทีฟ<br>และจัดแสดงผลงานของคุณเอง</p>
+  <button class="start-btn" onclick="startExperience()">เข้าสู่พิพิธภัณฑ์ · ENTER</button>
+</div>
+
+<div id="notification"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let scene, camera, renderer, clock;
+let moveForward=false, moveBack=false, moveLeft=false, moveRight=false;
+let isLocked = false;
+let pitch = 0, yaw = 0;
+const SPEED = 8, ROOM_W = 28, ROOM_H = 5, ROOM_D = 22;
+const artworkSlots = {}; // key: "wall-slot" → mesh
+let selectedFrame = 'gold';
+let selectedWall = 0;
+let selectedSlot = 0;
+let pendingImageUrl = null;
+let panelOpen = false;
+
+// ─── Canvas texture helpers ───────────────────────────────────────────────────
+function makeCanvasTexture(w, h, drawFn) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  drawFn(c.getContext('2d'), w, h);
+  return new THREE.CanvasTexture(c);
+}
+
+function makeWallTexture() {
+  return makeCanvasTexture(1024, 1024, (ctx, w, h) => {
+    // Base warm beige
+    ctx.fillStyle = '#e8ddd0';
+    ctx.fillRect(0, 0, w, h);
+    // Subtle wainscoting lines
+    ctx.strokeStyle = 'rgba(160,140,115,0.35)';
+    ctx.lineWidth = 2;
+    for (let y = 200; y < h; y += 200) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+    for (let x = 200; x < w; x += 200) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+    }
+    // Noise grain
+    for (let i = 0; i < 15000; i++) {
+      const x = Math.random()*w, y = Math.random()*h;
+      const a = Math.random()*0.03;
+      ctx.fillStyle = `rgba(100,80,50,${a})`;
+      ctx.fillRect(x, y, 1, 1);
+    }
+  });
+}
+
+function makeFloorTexture() {
+  return makeCanvasTexture(1024, 1024, (ctx, w, h) => {
+    const tileW = 128, tileH = 128;
+    const colors = ['#c4a97d', '#b89768', '#d4b98d', '#aa8b5e'];
+    for (let row = 0; row < h/tileH; row++) {
+      for (let col = 0; col < w/tileW; col++) {
+        const ci = (row + col) % 2 === 0 ? 0 : 1;
+        ctx.fillStyle = colors[ci + (row % 2 === 0 ? 0 : 2)];
+        ctx.fillRect(col*tileW, row*tileH, tileW, tileH);
+        // Grout lines
+        ctx.strokeStyle = 'rgba(80,60,30,0.25)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(col*tileW+1, row*tileH+1, tileW-2, tileH-2);
+        // Highlight
+        ctx.fillStyle = 'rgba(255,240,200,0.06)';
+        ctx.fillRect(col*tileW+2, row*tileH+2, 20, 8);
+      }
+    }
+    // Subtle noise
+    for (let i = 0; i < 8000; i++) {
+      const x = Math.random()*w, y = Math.random()*h;
+      ctx.fillStyle = `rgba(0,0,0,${Math.random()*0.04})`;
+      ctx.fillRect(x, y, 2, 2);
+    }
+  });
+}
+
+function makeCeilingTexture() {
+  return makeCanvasTexture(512, 512, (ctx, w, h) => {
+    ctx.fillStyle = '#f0ebe0';
+    ctx.fillRect(0, 0, w, h);
+    // Coffered ceiling pattern
+    ctx.strokeStyle = 'rgba(180,160,120,0.3)';
+    ctx.lineWidth = 3;
+    const g = 128;
+    for (let x = 0; x <= w; x += g) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+    }
+    for (let y = 0; y <= h; y += g) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+    // Inner panels
+    ctx.strokeStyle = 'rgba(200,180,140,0.2)';
+    ctx.lineWidth = 1;
+    for (let c = 0; c < w/g; c++) for (let r = 0; r < h/g; r++) {
+      const pad = 12;
+      ctx.strokeRect(c*g+pad, r*g+pad, g-pad*2, g-pad*2);
+    }
+  });
+}
+
+function makeFrameTexture(style) {
+  return makeCanvasTexture(64, 64, (ctx, w, h) => {
+    const colors = {
+      gold: ['#c9a84c','#f5e098','#a07830'],
+      dark: ['#2a1f10','#4a3520','#1a0f05'],
+      silver: ['#a0a8b0','#d8e0e8','#606870'],
+      ornate: ['#b8902a','#e8c060','#805010'],
+      minimal: ['#303030','#505050','#101010'],
+      none: ['transparent','transparent','transparent']
+    };
+    const [mid, light, dark] = colors[style] || colors.gold;
+    ctx.fillStyle = mid; ctx.fillRect(0,0,w,h);
+    ctx.fillStyle = light; ctx.fillRect(0,0,w,4);
+    ctx.fillStyle = light; ctx.fillRect(0,0,4,h);
+    ctx.fillStyle = dark; ctx.fillRect(0,h-4,w,4);
+    ctx.fillStyle = dark; ctx.fillRect(w-4,0,4,h);
+  });
+}
+
+function makePlaceholderTexture(wallIdx, slotIdx) {
+  return makeCanvasTexture(512, 384, (ctx, w, h) => {
+    ctx.fillStyle = '#1a150d';
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(201,168,76,0.15)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(8, 8, w-16, h-16);
+    // Corner ornaments
+    const cs = 20;
+    [['rgba(201,168,76,0.3)', 8, 8], ['rgba(201,168,76,0.3)', w-8-cs, 8],
+     ['rgba(201,168,76,0.3)', 8, h-8-cs], ['rgba(201,168,76,0.3)', w-8-cs, h-8-cs]].forEach(([c, x, y]) => {
+      ctx.strokeStyle = c; ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, cs, cs);
+    });
+    ctx.fillStyle = 'rgba(201,168,76,0.2)';
+    ctx.font = 'bold 40px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('🖼', w/2, h/2-10);
+    ctx.fillStyle = 'rgba(201,168,76,0.3)';
+    ctx.font = '14px sans-serif';
+    ctx.fillText(`Wall ${['N','S','E','W'][wallIdx]} · Slot ${slotIdx+1}`, w/2, h/2+30);
+    ctx.fillText('คลิกอัปโหลด ▶', w/2, h/2+52);
+  });
+}
+
+function makeSpotlightTexture() {
+  return makeCanvasTexture(128, 128, (ctx, w, h) => {
+    const grad = ctx.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2);
+    grad.addColorStop(0, 'rgba(255,240,180,0.9)');
+    grad.addColorStop(0.5, 'rgba(255,220,120,0.3)');
+    grad.addColorStop(1, 'rgba(255,200,100,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,w,h);
+  });
+}
+
+function makePillarTexture() {
+  return makeCanvasTexture(256, 512, (ctx, w, h) => {
+    const grad = ctx.createLinearGradient(0,0,w,0);
+    grad.addColorStop(0,'#d4c4a0');
+    grad.addColorStop(0.3,'#e8d8b8');
+    grad.addColorStop(0.7,'#e0cca8');
+    grad.addColorStop(1,'#c8b890');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,w,h);
+    // Fluting lines
+    ctx.strokeStyle='rgba(180,160,110,0.4)'; ctx.lineWidth=1.5;
+    for(let x=20; x<w; x+=20){
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke();
+    }
+  });
+}
+
+// ─── Scene Setup ──────────────────────────────────────────────────────────────
+function initScene() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x100a06);
+  scene.fog = new THREE.Fog(0x100a06, 20, 50);
+
+  clock = new THREE.Clock();
+
+  camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 100);
+  camera.position.set(0, 1.7, 4);
+
+  renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('three-canvas'), antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.physicallyCorrectLights = true;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.2;
+
+  buildRoom();
+  buildLights();
+  buildDecorations();
+  buildArtworkFrames();
+
+  window.addEventListener('resize', onResize);
+  setupControls();
+  animate();
+}
+
+function buildRoom() {
+  const wallTex = makeWallTexture();
+  wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
+  wallTex.repeat.set(3, 2);
+
+  const floorTex = makeFloorTexture();
+  floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
+  floorTex.repeat.set(7, 6);
+
+  const ceilTex = makeCeilingTexture();
+  ceilTex.wrapS = ceilTex.wrapT = THREE.RepeatWrapping;
+  ceilTex.repeat.set(4, 4);
+
+  const wallMat = new THREE.MeshLambertMaterial({ map: wallTex });
+  const floorMat = new THREE.MeshLambertMaterial({ map: floorTex });
+  const ceilMat = new THREE.MeshLambertMaterial({ map: ceilTex });
+
+  // Floor
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D), floorMat);
+  floor.rotation.x = -Math.PI/2;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  // Ceiling
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D), ceilMat);
+  ceil.rotation.x = Math.PI/2;
+  ceil.position.y = ROOM_H;
+  scene.add(ceil);
+
+  // Walls
+  const walls = [
+    { size:[ROOM_W,ROOM_H], pos:[0,ROOM_H/2,-ROOM_D/2], rot:[0,0,0] },       // North
+    { size:[ROOM_W,ROOM_H], pos:[0,ROOM_H/2, ROOM_D/2], rot:[0,Math.PI,0] }, // South
+    { size:[ROOM_D,ROOM_H], pos:[ ROOM_W/2,ROOM_H/2,0], rot:[0,-Math.PI/2,0] }, // East
+    { size:[ROOM_D,ROOM_H], pos:[-ROOM_W/2,ROOM_H/2,0], rot:[0,Math.PI/2,0] }, // West
+  ];
+
+  walls.forEach(({size,pos,rot}) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(...size), wallMat.clone());
+    m.position.set(...pos);
+    m.rotation.set(...rot);
+    m.receiveShadow = true;
+    scene.add(m);
+  });
+
+  // Baseboard
+  const baseboardMat = new THREE.MeshLambertMaterial({ color: 0xc8b890 });
+  [
+    [ROOM_W, 0.2, 0.1, 0, 0.1, -ROOM_D/2+0.05, 0],
+    [ROOM_W, 0.2, 0.1, 0, 0.1,  ROOM_D/2-0.05, 0],
+    [0.1, 0.2, ROOM_D, 0, 0.1, 0,  ROOM_W/2-0.05],
+    [0.1, 0.2, ROOM_D, 0, 0.1, 0, -ROOM_W/2+0.05],
+  ].forEach(([w,h,d, rx,y,z,x]) => {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), baseboardMat);
+    b.position.set(x,y,z);
+    scene.add(b);
+  });
+
+  // Crown molding
+  const moldMat = new THREE.MeshLambertMaterial({ color: 0xd8c8a0 });
+  [
+    [ROOM_W, 0.15, 0.1, 0, ROOM_H-0.075, -ROOM_D/2+0.05, 0],
+    [ROOM_W, 0.15, 0.1, 0, ROOM_H-0.075,  ROOM_D/2-0.05, 0],
+    [0.1, 0.15, ROOM_D, 0, ROOM_H-0.075, 0,  ROOM_W/2-0.05],
+    [0.1, 0.15, ROOM_D, 0, ROOM_H-0.075, 0, -ROOM_W/2+0.05],
+  ].forEach(([w,h,d, rx,y,z,x]) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), moldMat);
+    m.position.set(x,y,z);
+    scene.add(m);
+  });
+}
+
+function buildLights() {
+  // Ambient
+  const ambient = new THREE.AmbientLight(0xfff0d8, 0.4);
+  scene.add(ambient);
+
+  // Main chandeliers
+  [[-8,0], [0,0], [8,0]].forEach(([x,z]) => {
+    const pt = new THREE.PointLight(0xfff0d0, 1.5, 18);
+    pt.position.set(x, ROOM_H-0.5, z);
+    pt.castShadow = true;
+    pt.shadow.mapSize.set(512, 512);
+    scene.add(pt);
+
+    // Chandelier geometry
+    const chGeo = new THREE.SphereGeometry(0.12, 8, 8);
+    const chMat = new THREE.MeshBasicMaterial({ color: 0xfffce0 });
+    const ch = new THREE.Mesh(chGeo, chMat);
+    ch.position.copy(pt.position);
+    scene.add(ch);
+
+    // Hanging rod
+    const rod = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.02, 0.02, 0.4, 6),
+      new THREE.MeshLambertMaterial({ color: 0xb08030 })
+    );
+    rod.position.set(x, ROOM_H-0.2, z);
+    scene.add(rod);
+  });
+
+  // Spotlights for artwork (wall lights)
+  const spotPositions = [
+    // North wall
+    [-8, 3.5, -ROOM_D/2+2], [-3, 3.5, -ROOM_D/2+2], [3, 3.5, -ROOM_D/2+2],
+    // South wall
+    [-8, 3.5, ROOM_D/2-2], [-3, 3.5, ROOM_D/2-2], [3, 3.5, ROOM_D/2-2],
+    // East wall
+    [ROOM_W/2-2, 3.5, -5], [ROOM_W/2-2, 3.5, 0], [ROOM_W/2-2, 3.5, 5],
+    // West wall
+    [-ROOM_W/2+2, 3.5, -5], [-ROOM_W/2+2, 3.5, 0], [-ROOM_W/2+2, 3.5, 5],
+  ];
+
+  spotPositions.forEach(([x,y,z]) => {
+    const spot = new THREE.PointLight(0xffe8b0, 0.8, 6);
+    spot.position.set(x, y, z);
+    scene.add(spot);
+  });
+}
+
+function buildDecorations() {
+  const pillarTex = makePillarTexture();
+  const pillarMat = new THREE.MeshLambertMaterial({ map: pillarTex });
+  const capMat = new THREE.MeshLambertMaterial({ color: 0xd8c898 });
+
+  // Pillars
+  [[-6, 0, -4], [6, 0, -4], [-6, 0, 4], [6, 0, 4]].forEach(([x,y,z]) => {
+    // Shaft
+    const shaft = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.25, 0.28, ROOM_H, 12),
+      pillarMat
+    );
+    shaft.position.set(x, ROOM_H/2, z);
+    shaft.castShadow = true;
+    scene.add(shaft);
+
+    // Capital
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.2, 0.7), capMat);
+    cap.position.set(x, ROOM_H-0.1, z);
+    scene.add(cap);
+
+    // Base
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.15, 0.7), capMat);
+    base.position.set(x, 0.075, z);
+    scene.add(base);
+  });
+
+  // Benches
+  const benchMat = new THREE.MeshLambertMaterial({ color: 0x5a3c1e });
+  const legMat = new THREE.MeshLambertMaterial({ color: 0x8a6040 });
+
+  [[-3, 0], [3, 0]].forEach(([x, z]) => {
+    // Seat
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(3, 0.08, 0.6), benchMat);
+    seat.position.set(x, 0.45, z);
+    scene.add(seat);
+    // Legs
+    [[-1.3, -0.2], [-1.3, 0.2], [1.3, -0.2], [1.3, 0.2]].forEach(([lx, lz]) => {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.45, 6), legMat);
+      leg.position.set(x+lx, 0.225, z+lz);
+      scene.add(leg);
+    });
+  });
+
+  // Plants
+  buildPlant(-ROOM_W/2+1, 0, -ROOM_D/2+1);
+  buildPlant( ROOM_W/2-1, 0, -ROOM_D/2+1);
+  buildPlant(-ROOM_W/2+1, 0,  ROOM_D/2-1);
+  buildPlant( ROOM_W/2-1, 0,  ROOM_D/2-1);
+}
+
+function buildPlant(x, y, z) {
+  const potMat = new THREE.MeshLambertMaterial({ color: 0x8a5a30 });
+  const soilMat = new THREE.MeshLambertMaterial({ color: 0x3a2010 });
+  const leafMat = new THREE.MeshLambertMaterial({ color: 0x2a5a1a, side: THREE.DoubleSide });
+
+  const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.18, 0.5, 10), potMat);
+  pot.position.set(x, 0.25, z);
+  scene.add(pot);
+
+  const soil = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.05, 10), soilMat);
+  soil.position.set(x, 0.525, z);
+  scene.add(soil);
+
+  // Leaves (flat planes)
+  for (let i = 0; i < 6; i++) {
+    const angle = (i / 6) * Math.PI * 2;
+    const leaf = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.8), leafMat);
+    leaf.position.set(x + Math.cos(angle)*0.15, 0.9, z + Math.sin(angle)*0.15);
+    leaf.rotation.y = angle;
+    leaf.rotation.z = 0.4;
+    scene.add(leaf);
+  }
+}
+
+// ─── Artwork Frames ───────────────────────────────────────────────────────────
+const WALL_CONFIGS = [
+  // North wall: x positions, facing south (+z)
+  { axis: 'z', side: -1, zPos: -ROOM_D/2+0.05, xPositions: [-8, -1, 6], yPos: 2.4 },
+  // South wall: facing north (-z)
+  { axis: 'z', side: 1, zPos:  ROOM_D/2-0.05, xPositions: [-8, -1, 6], yPos: 2.4 },
+  // East wall: x=ROOM_W/2, facing west
+  { axis: 'x', side: 1, xPos: ROOM_W/2-0.05, zPositions: [-5, 0, 5], yPos: 2.4 },
+  // West wall: x=-ROOM_W/2, facing east
+  { axis: 'x', side: -1, xPos: -ROOM_W/2+0.05, zPositions: [-5, 0, 5], yPos: 2.4 },
+];
+
+function buildArtworkFrames() {
+  WALL_CONFIGS.forEach((cfg, wallIdx) => {
+    const positions = cfg.axis === 'z' ? cfg.xPositions : cfg.zPositions;
+    positions.forEach((pos, slotIdx) => {
+      createFrameMesh(wallIdx, slotIdx, cfg, pos, null, 'gold');
+    });
+  });
+}
+
+function createFrameMesh(wallIdx, slotIdx, cfg, pos, imageUrl, frameStyle) {
+  const key = `${wallIdx}-${slotIdx}`;
+
+  // Remove existing
+  if (artworkSlots[key]) {
+    scene.remove(artworkSlots[key]);
+    artworkSlots[key] = null;
+  }
+
+  const group = new THREE.Group();
+  const fw = 2.2, fh = 1.7, fd = 0.08;
+
+  // Frame outer
+  const frameTex = makeFrameTexture(frameStyle);
+  const frameMat = new THREE.MeshLambertMaterial({ map: frameTex });
+
+  // Top bar
+  const tb = new THREE.Mesh(new THREE.BoxGeometry(fw, fd, fd), frameMat);
+  tb.position.set(0, fh/2, 0);
+  group.add(tb);
+  // Bottom bar
+  const bb = new THREE.Mesh(new THREE.BoxGeometry(fw, fd, fd), frameMat);
+  bb.position.set(0, -fh/2, 0);
+  group.add(bb);
+  // Left bar
+  const lb = new THREE.Mesh(new THREE.BoxGeometry(fd, fh, fd), frameMat);
+  lb.position.set(-fw/2, 0, 0);
+  group.add(lb);
+  // Right bar
+  const rb = new THREE.Mesh(new THREE.BoxGeometry(fd, fh, fd), frameMat);
+  rb.position.set(fw/2, 0, 0);
+  group.add(rb);
+
+  // Canvas/image
+  const pw = fw - fd*2 - 0.04, ph = fh - fd*2 - 0.04;
+  let artTex;
+  if (imageUrl) {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = 512; c.height = 384;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0,0,512,384);
+      // Fit image
+      const aspect = img.width / img.height;
+      const cAspect = 512 / 384;
+      let dw, dh, dx, dy;
+      if (aspect > cAspect) {
+        dw = 512; dh = 512/aspect; dx = 0; dy = (384-dh)/2;
+      } else {
+        dh = 384; dw = 384*aspect; dy = 0; dx = (512-dw)/2;
+      }
+      ctx.drawImage(img, dx, dy, dw, dh);
+      const tex = new THREE.CanvasTexture(c);
+      artMesh.material.map = tex;
+      artMesh.material.needsUpdate = true;
+    };
+    img.src = imageUrl;
+    artTex = makePlaceholderTexture(wallIdx, slotIdx);
+  } else {
+    artTex = makePlaceholderTexture(wallIdx, slotIdx);
+  }
+
+  const artMat = new THREE.MeshLambertMaterial({ map: artTex });
+  const artMesh = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), artMat);
+  artMesh.position.set(0, 0, fd/2 + 0.001);
+  group.add(artMesh);
+
+  // Hanging wire
+  const wireMat = new THREE.MeshLambertMaterial({ color: 0x707070 });
+  const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.3, 4), wireMat);
+  wire.position.set(0, fh/2 + 0.15, 0);
+  group.add(wire);
+
+  // Position group on wall
+  if (cfg.axis === 'z') {
+    group.position.set(pos, cfg.yPos, cfg.zPos);
+    if (cfg.side === -1) group.rotation.y = 0;
+    else group.rotation.y = Math.PI;
+  } else {
+    group.position.set(cfg.xPos, cfg.yPos, pos);
+    if (cfg.side === 1) group.rotation.y = -Math.PI/2;
+    else group.rotation.y = Math.PI/2;
+  }
+
+  scene.add(group);
+  artworkSlots[key] = group;
+  return group;
+}
+
+// ─── Controls ─────────────────────────────────────────────────────────────────
+function setupControls() {
+  const canvas = renderer.domElement;
+
+  canvas.addEventListener('click', () => {
+    if (!panelOpen) canvas.requestPointerLock();
+  });
+
+  document.addEventListener('pointerlockchange', () => {
+    isLocked = document.pointerLockElement === canvas;
+    document.body.classList.toggle('pointer-locked', isLocked);
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!isLocked) return;
+    yaw -= e.movementX * 0.0018;
+    pitch -= e.movementY * 0.0018;
+    pitch = Math.max(-Math.PI*0.4, Math.min(Math.PI*0.4, pitch));
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.code === 'KeyW') moveForward = true;
+    if (e.code === 'KeyS') moveBack = true;
+    if (e.code === 'KeyA') moveLeft = true;
+    if (e.code === 'KeyD') moveRight = true;
+    if (e.code === 'Escape' && panelOpen) togglePanel();
+  });
+
+  document.addEventListener('keyup', e => {
+    if (e.code === 'KeyW') moveForward = false;
+    if (e.code === 'KeyS') moveBack = false;
+    if (e.code === 'KeyA') moveLeft = false;
+    if (e.code === 'KeyD') moveRight = false;
+  });
+}
+
+function onResize() {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+}
+
+// ─── Animation Loop ───────────────────────────────────────────────────────────
+const velocity = new THREE.Vector3();
+const direction = new THREE.Vector3();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+
+  if (isLocked) {
+    // Apply yaw/pitch
+    camera.rotation.order = 'YXZ';
+    camera.rotation.y = yaw;
+    camera.rotation.x = pitch;
+
+    // Movement
+    direction.set(0, 0, 0);
+    if (moveForward)  direction.z -= 1;
+    if (moveBack)     direction.z += 1;
+    if (moveLeft)     direction.x -= 1;
+    if (moveRight)    direction.x += 1;
+    direction.normalize();
+
+    const moveVec = direction.clone().applyEuler(new THREE.Euler(0, yaw, 0, 'YXZ'));
+
+    camera.position.addScaledVector(moveVec, SPEED * dt);
+
+    // Clamp to room
+    const margin = 0.6;
+    camera.position.x = Math.max(-ROOM_W/2+margin, Math.min(ROOM_W/2-margin, camera.position.x));
+    camera.position.z = Math.max(-ROOM_D/2+margin, Math.min(ROOM_D/2-margin, camera.position.z));
+    camera.position.y = 1.7;
+  }
+
+  updateMinimap();
+  renderer.render(scene, camera);
+}
+
+// ─── Minimap ──────────────────────────────────────────────────────────────────
+function updateMinimap() {
+  const mc = document.getElementById('minimap-canvas');
+  const ctx = mc.getContext('2d');
+  const w = mc.width, h = mc.height;
+
+  ctx.fillStyle = 'rgba(10,8,6,0.95)';
+  ctx.fillRect(0, 0, w, h);
+
+  // Room outline
+  ctx.strokeStyle = 'rgba(201,168,76,0.4)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(5, 5, w-10, h-10);
+
+  // Pillars
+  ctx.fillStyle = 'rgba(201,168,76,0.2)';
+  [[-6,0,-4],[6,0,-4],[-6,0,4],[6,0,4]].forEach(([x,,z]) => {
+    const mx = (x/ROOM_W*2+0.5) * (w-10) + 5;
+    const mz = (z/ROOM_D*2+0.5) * (h-10) + 5;
+    ctx.beginPath();
+    ctx.arc(mx, mz, 3, 0, Math.PI*2);
+    ctx.fill();
+  });
+
+  // Player
+  const px = (camera.position.x/ROOM_W*2+0.5) * (w-10) + 5;
+  const pz = (camera.position.z/ROOM_D*2+0.5) * (h-10) + 5;
+
+  // Direction arrow
+  ctx.save();
+  ctx.translate(px, pz);
+  ctx.rotate(yaw + Math.PI);
+  ctx.fillStyle = '#c9a84c';
+  ctx.beginPath();
+  ctx.moveTo(0, -6);
+  ctx.lineTo(3, 4);
+  ctx.lineTo(-3, 4);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+// ─── UI Functions ─────────────────────────────────────────────────────────────
+function startExperience() {
+  document.getElementById('start-screen').classList.add('hidden');
+  setTimeout(() => { document.getElementById('start-screen').style.display = 'none'; }, 700);
+}
+
+function togglePanel() {
+  panelOpen = !panelOpen;
+  document.getElementById('upload-panel').classList.toggle('open', panelOpen);
+  document.getElementById('panel-toggle').textContent = panelOpen ? '✕ ปิด' : 'อัปโหลด ภาพ';
+  if (panelOpen && isLocked) document.exitPointerLock();
+}
+
+function selectFrame(el) {
+  document.querySelectorAll('.frame-option').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedFrame = el.dataset.frame;
+}
+
+function selectWall(el) {
+  document.querySelectorAll('.wall-btn').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedWall = parseInt(el.dataset.wall);
+}
+
+function selectSlot(el) {
+  document.querySelectorAll('.slot-btn').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedSlot = parseInt(el.dataset.slot);
+}
+
+function applyArtwork() {
+  const cfg = WALL_CONFIGS[selectedWall];
+  const positions = cfg.axis === 'z' ? cfg.xPositions : cfg.zPositions;
+  const pos = positions[selectedSlot];
+  createFrameMesh(selectedWall, selectedSlot, cfg, pos, pendingImageUrl, selectedFrame);
+
+  const wallNames = ['เหนือ (North)', 'ใต้ (South)', 'ตะวันออก (East)', 'ตะวันตก (West)'];
+  showNotification(`✦ แขวนภาพที่ผนัง${wallNames[selectedWall]} ช่องที่ ${selectedSlot+1}`);
+}
+
+function clearSlot() {
+  const key = `${selectedWall}-${selectedSlot}`;
+  if (artworkSlots[key]) {
+    scene.remove(artworkSlots[key]);
+    artworkSlots[key] = null;
+  }
+  pendingImageUrl = null;
+  document.getElementById('preview-container').style.display = 'none';
+
+  const cfg = WALL_CONFIGS[selectedWall];
+  const positions = cfg.axis === 'z' ? cfg.xPositions : cfg.zPositions;
+  createFrameMesh(selectedWall, selectedSlot, cfg, positions[selectedSlot], null, selectedFrame);
+  showNotification('ลบภาพออกแล้ว');
+}
+
+function showNotification(msg) {
+  const el = document.getElementById('notification');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ─── File Upload ──────────────────────────────────────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('click', () => fileInput.click());
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) handleImageFile(file);
+});
+
+fileInput.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (file) handleImageFile(file);
+});
+
+function handleImageFile(file) {
+  if (file.size > 8 * 1024 * 1024) {
+    showNotification('⚠ ไฟล์ใหญ่เกิน 8MB'); return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    pendingImageUrl = e.target.result;
+    document.getElementById('preview-img').src = pendingImageUrl;
+    document.getElementById('preview-container').style.display = 'block';
+    dropZone.querySelector('p').innerHTML = `<strong style="color:var(--gold-light)">✓ ${file.name}</strong><br><span style="font-size:0.7rem;opacity:0.6">${(file.size/1024).toFixed(0)} KB · พร้อมแขวน</span>`;
+    showNotification('✓ อัปโหลดสำเร็จ · เลือกตำแหน่งแล้วคลิก "แขวนภาพ"');
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+initScene();
+</script>
+</body>
+</html>
